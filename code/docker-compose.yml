@@ -1,0 +1,155 @@
+# =====================================================================
+# Stack de développement local complète.
+#   docker compose up -d        -> démarre tout
+#   docker compose logs -f backend
+# Services : postgres, qdrant, ollama, backend (FastAPI), frontend (Next.js)
+# =====================================================================
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tui_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --- Interface web pour PostgreSQL (consultation des tables) ---
+  adminer:
+    image: adminer:latest
+    container_name: tui_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # interface web : http://localhost:8080
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres   # pré-rempli le serveur dans le formulaire
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tui_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # API REST + dashboard (http://localhost:6333/dashboard)
+      - "6334:6334"   # API gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: tui_ollama
+    restart: unless-stopped
+    environment:
+      # Un seul modèle chargé à la fois : évite l'OOM quand reformulation et
+      # synthèse utilisent des modèles différents (machine 24 Go, pas de GPU).
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Pour activer le GPU NVIDIA, décommenter :
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  backend:
+    build:
+      context: ./backend
+    container_name: tui_backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./files:/data/files:ro          # corpus PDF accessible en lecture
+      - hf_cache:/root/.cache/huggingface  # cache du modèle BGE-M3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
+
+  # --- Observabilité (optionnel) : Langfuse + sa base dédiée ---
+  langfuse-db:
+    image: postgres:16-alpine
+    container_name: tui_langfuse_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: tui_langfuse
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_started
+    ports:
+      - "3001:3000"   # interface web : http://localhost:3001
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: tui-langfuse-nextauth-secret
+      SALT: tui-langfuse-salt
+      TELEMETRY_ENABLED: "false"
+      # Provisionne automatiquement une organisation, un projet et des clés
+      LANGFUSE_INIT_ORG_ID: tui-org
+      LANGFUSE_INIT_ORG_NAME: TUI
+      LANGFUSE_INIT_PROJECT_ID: tui-project
+      LANGFUSE_INIT_PROJECT_NAME: Assistant TUI
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_INIT_USER_EMAIL: admin@tui.local
+      LANGFUSE_INIT_USER_NAME: Admin
+      LANGFUSE_INIT_USER_PASSWORD: tuiadmin123
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: tui_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      # Hot-reload fiable à travers le montage Docker (macOS/Windows)
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  ollama_data:
+  hf_cache:
+  langfuse_db_data:

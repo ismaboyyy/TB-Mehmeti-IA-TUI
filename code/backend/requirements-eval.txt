@@ -1,0 +1,8 @@
+# Dépendances UNIQUEMENT pour l'évaluation hors ligne.
+# À installer dans un environnement séparé (pas dans l'image Docker du backend) :
+#     pip install -r requirements.txt -r requirements-eval.txt
+#
+# deepeval tire ir_datasets/zlib-state qui nécessitent des en-têtes système ;
+# on l'isole ici pour garder l'image backend légère et fiable.
+# (langfuse, lui, est dans requirements.txt car utilisé au runtime pour le tracing.)
+deepeval==2.1.5

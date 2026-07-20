@@ -1,0 +1,45 @@
+# Python
+*.pyc
+__pycache__/
+venv/
+.venv/
+.venv-eval/
+
+# NodeJS / Next.js
+node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+*.tsbuildinfo
+
+# Secrets et config locale (NE PAS committer)
+.env
+*.env
+!.env.example
+!.env.prod.example
+
+# Corpus PDF (volumineux ~7,6 Go + droits ACM) : NE JAMAIS pousser sur git
+files/
+
+# Caches modèles (HuggingFace / BGE-M3)
+.cache/
+
+# Résultats d'évaluation
+backend/eval/results/
+
+# Bower dependencies
+bower_components/
+
+# MacOS files
+**/.DS_Store
+# Sorties du script d'analyse PDF (images annotées + rapports)
+pdf_analysis/
+
+# Config / télémétrie DeepEval locale
+backend/.deepeval
+backend/.deepeval_telemtry.txt
+
+# Sorties de debug des scripts de visualisation (copies propres dans docs/images/)
+backend/blocks_tangible*
+backend/pymupdf_blocks*

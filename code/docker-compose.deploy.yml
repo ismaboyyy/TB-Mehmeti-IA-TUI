@@ -1,0 +1,93 @@
+# =====================================================================
+# Stack de DÉPLOIEMENT pour devweb.estia.fr (serveur Apache partagé).
+#
+#   docker compose -f docker-compose.deploy.yml up -d --build
+#
+# Particularités :
+#   - AUCUN nginx embarqué : l'Apache déjà en place sur le serveur est la
+#     porte d'entrée (sert le front statique + proxifie /tui_assistant/api).
+#   - AUCUN conteneur frontend : le front est buildé en statique et déposé
+#     dans /var/www/html/tui_assistant (voir deploy/DEPLOY.md).
+#   - Le backend n'écoute QUE sur 127.0.0.1:8000 (jamais exposé publiquement) :
+#     seul Apache (local) peut l'atteindre via le reverse-proxy.
+#   - postgres / qdrant / ollama ne publient AUCUN port (réseau interne Docker).
+#
+# Les variables (${...}) sont lues dans le .env du même dossier.
+# =====================================================================
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tui_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: tui_qdrant
+    restart: always
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: tui_ollama
+    restart: always
+    environment:
+      # Garde le modèle chargé en RAM entre deux requêtes (évite le rechargement
+      # à froid de plusieurs secondes sur CPU). -1 = ne décharge jamais.
+      OLLAMA_KEEP_ALIVE: "-1"
+      # Garde les 3 modèles (3b + deux 7b ≈ 11 Go) chauds en même temps : changer
+      # de modèle dans l'UI ne déclenche aucun rechargement (62 Go de RAM dispo).
+      OLLAMA_MAX_LOADED_MODELS: "3"
+      # CPU sans GPU : une seule requête LLM à la fois (évite de saturer les cœurs).
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: tui_backend
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      # Lié à la loopback : joignable seulement par Apache (local), pas depuis Internet.
+      # Port hôte 18000 (8000 déjà occupé sur le serveur partagé) -> conteneur 8000.
+      - "127.0.0.1:18000:8000"
+    volumes:
+      - ./files:/data/files:ro             # corpus PDF (lecture seule)
+      - hf_cache:/root/.cache/huggingface  # cache du modèle BGE-M3 (~2 Go)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s   # le 1er démarrage charge BGE-M3 -> laisser le temps
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  ollama_data:
+  hf_cache:

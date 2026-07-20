@@ -1,0 +1,28 @@
+# =====================================================================
+# À DÉPOSER tel quel en tant que /var/www/html/tui_assistant/.htaccess
+#
+# Rôle :
+#   - proxifier  /tui_assistant/api/*  -> backend FastAPI (127.0.0.1:8000)
+#   - servir le front statique (export Next.js) déposé dans ce dossier
+#
+# PRÉREQUIS : mod_rewrite + mod_proxy + mod_proxy_http utilisables en .htaccess
+# (AllowOverride All). Le test de la recon (réponse 200 sur /probe/) le confirme.
+# Si ce test échoue, utiliser plutôt deploy/apache/vhost-snippet.conf (côté IT).
+# =====================================================================
+RewriteEngine On
+RewriteBase /tui_assistant/
+
+# --- 1) API -> backend Docker (le préfixe "api/" est retiré au passage) ---
+#   /tui_assistant/api/chat  ->  http://127.0.0.1:18000/chat
+RewriteRule ^api/(.*)$ http://127.0.0.1:18000/$1 [P,L]
+
+# --- 2) Fichiers et dossiers réellement présents : servis tels quels ---
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# --- 3) Repli SPA : toute autre URL -> page d'entrée de l'app ---
+RewriteRule ^ index.html [L]
+
+# --- Streaming SSE (/api/chat/stream) : ne pas compresser la réponse ---
+SetEnvIf Request_URI "^/tui_assistant/api/chat/stream" no-gzip=1 dont-vary=1

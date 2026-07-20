@@ -1,0 +1,50 @@
+[
+  {
+    "id": "geosciences",
+    "question": "Comment construire une interface tangible pour l'aide à l'exploration des sous-sol ?",
+    "note": "Doit retrouver les papiers GeoTUI.",
+    "expected_keywords": ["tangible", "map", "cutting", "rule"],
+    "expected_documents": ["geotui_ihm07_demos", "geotui_SEG-TPEA-2009", "geotui_ubimob06_demos", "MemoireHDR-NRC(1)"]
+  },
+  {
+    "id": "cairn",
+    "question": "Comment construire une interface à changement de forme avec un empilement de disques : je veux les spécifications ?",
+    "note": "Doit retrouver les papiers CairnForm.",
+    "expected_keywords": ["tangible", "shape changing", "stack", "physicalisation"],
+    "expected_documents": ["A67-Daniel", "cairnform-peripheral_tei2019", "illuminated-ring_tei18_wip", "JIPS-6-CairnFORM-Daniel-OKtopublish", "p221-daniel"]
+  },
+  {
+    "id": "archeoAssembly",
+    "question": "Comment manipuler et réassembler des objets 3D fracturés avec une interface tangible ?",
+    "note": "Doit retrouver les papiers ArcheoTUI.",
+    "expected_keywords": ["tangible", "assembly", "fragment", "manipulation"],
+    "expected_documents": ["archeotui", "archeotui_jocch2010", "3772318.3793425", "MemoireHDR-NRC(1)"]
+  },
+  {
+    "id": "classification",
+    "question": "Existe-t-il un moyen de classifier les interfaces tangibles, ou de les caractériser ?",
+    "note": "cladistique",
+    "expected_keywords": ["tangible", "cladistique", "description"],
+    "expected_documents": ["p209-fleck-HAL(1)"]
+  },
+  {
+    "id": "tacsel",
+    "question": "Comment construire un cockpit tangible ?",
+    "note": "tacsel",
+    "expected_keywords": ["tangible", "shape changing", "eyes-free", "touch interaction", "cockpit control"],
+    "expected_documents": ["Tacsel Shape-Changing Tactile Screen _CR", "tangible-cockpit-hci-author-version-HAL"]
+  },
+  {
+    "id": "refus_restaurant",
+    "question": "Quel est le meilleur restaurant à Bidart ?",
+    "note": "Hors-corpus TOTAL : aucun papier TUI ne traite ce sujet. Le système doit signaler l'absence d'information, PAS inventer un restaurant.",
+    "expected_refusal": true
+  },
+  {
+    "id": "cout_cairnform",
+    "question": "Quel est le coût matériel du prototype CairnForm à 10 anneaux ?",
+    "note": "Cas de FIDÉLITÉ : le corpus donne ~2350e (CairnFORM p.3). Le système doit retrouver et citer ce chiffre, pas l'inventer ni l'ignorer.",
+    "expected_keywords": ["2350", "matériel", "anneaux"],
+    "expected_documents": ["CairnFORM", "cairnform", "histogramme cylindrique"]
+  }
+]
